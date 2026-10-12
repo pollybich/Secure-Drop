@@ -23,6 +23,7 @@ jobs:
       - run: npm --prefix frontend ci
       - run: npm --prefix frontend run build
       - run: mvn -B -f backend/pom.xml verify
+      - run: ./scripts/init-env.sh
       - run: docker compose build
       - run: docker compose --env-file .env.example config --quiet
         env:
