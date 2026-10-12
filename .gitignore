@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+.tools/
+.runtime/
+data/
+backend/target/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+test-results/
+*.log
+.DS_Store
+
+*.tsbuildinfo
