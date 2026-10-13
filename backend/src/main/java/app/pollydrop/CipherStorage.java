@@ -47,7 +47,7 @@ public class CipherStorage {
             return cipher.doFinal(input,13,input.length-13);
         } catch(GeneralSecurityException e) { throw new IOException("Encrypted data integrity check failed",e); }
     }
-    public void delete(UUID id) throws IOException { Files.deleteIfExists(path(id)); }
+    public synchronized void delete(UUID id) throws IOException { Files.deleteIfExists(path(id)); }
     public Path root() { return root; }
     public void removeOrphans(Set<UUID> known) throws IOException {
         try(var files=Files.list(root)) {

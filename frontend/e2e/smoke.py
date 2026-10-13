@@ -81,6 +81,14 @@ with sync_playwright() as p:
     recipient.route('**/api/transfers/' + file_read.rsplit('/',1)[1], metadata_route)
     recipient.goto(file_read)
     expect(recipient.get_by_role('button', name='Получить файл')).to_be_visible()
+    # If every read fails, the visible retry must recover without consuming a download.
+    network['failures'] = 100
+    recipient.reload()
+    expect(recipient.get_by_role('heading', name='Не удалось открыть.')).to_be_visible()
+    expect(recipient.get_by_text('Load failed', exact=True)).not_to_be_visible()
+    network['failures'] = 0
+    recipient.get_by_role('button', name='Попробовать снова').click()
+    expect(recipient.get_by_role('button', name='Получить файл')).to_be_visible()
     # Failure after a successful download must not replace received content with an error card.
     network['refresh_failures'] = True
     with recipient.expect_download() as download_info:

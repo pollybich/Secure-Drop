@@ -8,6 +8,7 @@
     }
 }
 drop.pollybich.ru {
+    header Alt-Svc "clear"
     request_body {
         max_size 32MB
     }
