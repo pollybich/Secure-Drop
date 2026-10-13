@@ -47,6 +47,7 @@ with tarfile.open(sys.argv[1]) as archive:
             raise SystemExit('Unexpected archive entry')
 PY
 tar --no-same-owner -xzf "$STAGING/$FRONTEND" -C "$STAGING/dist"
+chmod -R a+rX "$STAGING/dist"
 if [ ! -f "$STAGING/dist/index.html" ]; then echo 'Frontend archive has no index.html.' >&2; exit 1; fi
 # Replace only this script's generated frontend output.
 if [ -d "$ROOT/.runtime/server/frontend/dist" ]; then rm -rf -- "$ROOT/.runtime/server/frontend/dist"; fi
