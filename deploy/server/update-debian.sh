@@ -22,6 +22,9 @@ fi
 "${COMPOSE[@]}" exec -T caddy caddy reload --config /etc/caddy/Caddyfile
 for attempt in $(seq 1 90); do
   if curl --fail --silent http://127.0.0.1:8088/api/health | python3 -c 'import sys,json; sys.exit(0 if json.load(sys.stdin).get("version")=="0.1.0-beta.2" else 1)' 2>/dev/null; then
+    VERIFY=(python3 deploy/server/verify-interface.py --image pollydrop-public-frontend)
+    if [ "${1:-}" != '--frontend-from-release' ]; then VERIFY+=(--source frontend/src/App.tsx); fi
+    "${VERIFY[@]}"
     echo 'pollyDrop v0.1.0-beta.2 is ready. Existing secrets and data volumes were kept.'
     exit 0
   fi

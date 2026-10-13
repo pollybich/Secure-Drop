@@ -70,6 +70,8 @@ git pull --ff-only
 
 The script preserves secrets and volumes, downloads the SHA-256-verified released backend and **builds the frontend from the current checkout**. A normal update therefore applies the one-hour default without an extra flag or a new version. Docker handles Node.js compilation; no host Node.js is required. Caddy reloads with HTTP/1.1 and HTTP/2. See [deployment](DEPLOYMENT.md).
 
+If the old 24-hour interface persists, run `./deploy/server/update-interface.sh` to apply a checked prebuilt snapshot without Node.js compilation and verify the served JavaScript.
+
 `--frontend-from-source` remains compatible. Only an explicit `--frontend-from-release` installs the published frontend, whose defaults may differ from current source.
 
 ## Development

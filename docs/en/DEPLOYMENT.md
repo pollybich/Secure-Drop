@@ -57,3 +57,17 @@ Installation and normal updates compile the checkout’s frontend with Node.js 2
 Keys, database, files, HTTPS and request limits are preserved. Health stays version `0.1.0-beta.2`; reload the page after updating and check that a fresh form shows one hour.
 
 `--frontend-from-source` remains compatible. Use `--frontend-from-release` only to explicitly install the published frontend; the old release defaults to 24 hours.
+
+## Repair a stale 24-hour interface
+
+If the checkout is current but the server still serves `index-CkzQpeiu.js` and `useState(86400)`, apply the checked prebuilt interface:
+
+```bash
+cd /opt/pollydrop
+git pull --ff-only
+./deploy/server/update-interface.sh
+```
+
+The script verifies archive/JavaScript SHA-256, builds only Nginx with static files and recreates only the frontend. No Node.js compilation or backend/database/volume restart. Success requires the served JavaScript to match `/assets/index-DFQQf_X9.js` with the 3600-second default; a stale response fails verification.
+
+The packaged snapshot is specific to the one-hour change without a new release. Use normal `update-debian.sh` for subsequent updates; it also verifies served frontend bytes against the built image. This snapshot remains a historical fix when future releases are published.
