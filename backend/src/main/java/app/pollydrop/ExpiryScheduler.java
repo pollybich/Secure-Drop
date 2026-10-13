@@ -19,8 +19,8 @@ public class ExpiryScheduler {
     public void schedule(UUID id,Instant expiresAt){
         pending.compute(id,(key,previous)->{
             if(previous!=null)previous.cancel(false);
-            long delay=Math.max(0,Duration.between(Instant.now(),expiresAt).toMillis());
-            return timer.schedule(()->{try{cleanup.discard(id);}finally{pending.remove(id);}},delay,TimeUnit.MILLISECONDS);
+            long delay=Math.max(0,Duration.between(Instant.now(),expiresAt).toNanos());
+            return timer.schedule(()->{try{cleanup.discard(id);}finally{pending.remove(id);}},delay,TimeUnit.NANOSECONDS);
         });
     }
     public void cancel(UUID id){ScheduledFuture<?> previous=pending.remove(id);if(previous!=null)previous.cancel(false);}
