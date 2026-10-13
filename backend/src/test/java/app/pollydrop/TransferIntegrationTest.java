@@ -117,4 +117,61 @@ class TransferIntegrationTest {
         assertThatThrownBy(()->limited.write(UUID.randomUUID(),new byte[30])).isInstanceOfSatisfying(ApiFailure.class,e->assertThat(e.status).isEqualTo(507));
         try(var entries=Files.list(tiny)){assertThat(entries.count()).isZero();}Files.delete(tiny);
     }
+    @Autowired DownloadTickets tickets;
+    @Autowired ExpiryScheduler expiry;
+    @Test void nativeTicketChecksPasswordAndHeadDoesNotSpendIt()throws Exception {
+        var c=service.create(new TransferService.Options("FILE",null,null,600,1,"secret"),new byte[]{0,1,2},"проверка.bin");
+        var id=row(c).id;
+        http.perform(post("/api/transfers/"+c.readToken()+"/download-ticket").contentType("application/json").content("{\"password\":\"wrong\"}"))
+            .andExpect(status().isUnauthorized());
+        var issued=tickets.issue(c.readToken(),"secret","ticket-client");
+        assertThat(service.publicView(c.readToken()).downloads()).isZero();
+        http.perform(head(issued.url())).andExpect(status().isMethodNotAllowed());
+        http.perform(get(issued.statusUrl())).andExpect(status().isOk()).andExpect(jsonPath("state").value("READY"));
+        http.perform(get(issued.url())).andExpect(status().isOk()).andExpect(header().string("Content-Disposition",org.hamcrest.Matchers.containsString("attachment"))).andExpect(content().bytes(new byte[]{0,1,2}));
+        http.perform(get(issued.url())).andExpect(status().isGone());
+        http.perform(get(issued.statusUrl())).andExpect(jsonPath("state").value("SENT"));
+        assertThat(Files.exists(STORE.resolve(id+".enc"))).isFalse();
+        assertThat(service.manageView(c.manageToken()).downloads()).isEqualTo(1);
+    }
+    @Test void ticketCannotBypassExpiryRevokeOrLastDownload()throws Exception {
+        var c=text(null,1);var issued=tickets.issue(c.readToken(),null,"test");service.revoke(c.manageToken());
+        http.perform(get(issued.url())).andExpect(status().isGone()).andExpect(jsonPath("code").value("REVOKED"));
+        http.perform(get(issued.statusUrl())).andExpect(jsonPath("state").value("FAILED"));
+        var once=text(null,1);var first=tickets.issue(once.readToken(),null,"test");var second=tickets.issue(once.readToken(),null,"test");
+        http.perform(get(first.url())).andExpect(status().isOk());
+        http.perform(get(second.url())).andExpect(status().isGone()).andExpect(jsonPath("code").value("EXHAUSTED"));
+    }
+    @Test void ticketExpiresWithoutSpendingDownload()throws Exception {
+        var c=text(null,1);java.time.Clock clock=org.mockito.Mockito.mock(java.time.Clock.class);
+        Instant now=Instant.now();org.mockito.Mockito.when(clock.instant()).thenReturn(now);
+        var local=new DownloadTickets(service,clock);var issued=local.issue(c.readToken(),null,"test");
+        org.mockito.Mockito.when(clock.instant()).thenReturn(now.plusSeconds(61));
+        String token=issued.url().substring(issued.url().lastIndexOf('/')+1);
+        failure(()->local.begin(token),410,"DOWNLOAD_EXPIRED");
+        assertThat(service.publicView(c.readToken()).downloads()).isZero();
+    }
+    @Test void lastDownloadDeletesImmediatelyButEarlierDownloadsKeepContent()throws Exception {
+        var c=service.create(new TransferService.Options("FILE",null,null,600,3,null),new byte[]{3,4,5},"three.bin");
+        var path=STORE.resolve(row(c).id+".enc");
+        for(int i=1;i<=3;i++){
+            delivery.send(service.reserve(c.readToken(),null,"test"),OutputStream.nullOutputStream());
+            assertThat(Files.exists(path)).isEqualTo(i<3);
+        }
+    }
+    @Test void deadlineDeletesEvenWithoutAnotherRequestAndInterruptsActiveLease()throws Exception {
+        var c=text(null,3);var t=row(c);Instant deadline=Instant.now().plusMillis(300);t.expiresAt=deadline;repository.saveAndFlush(t);
+        var lease=service.reserve(c.readToken(),null,"test");expiry.schedule(t.id,deadline);
+        long until=System.nanoTime()+TimeUnit.SECONDS.toNanos(3);
+        while(Files.exists(STORE.resolve(t.id+".enc")) && System.nanoTime()<until)Thread.sleep(25);
+        assertThat(Files.exists(STORE.resolve(t.id+".enc"))).isFalse();
+        assertThat(service.publicView(c.readToken()).downloads()).isZero();
+        assertThatThrownBy(()->delivery.send(lease,OutputStream.nullOutputStream())).isInstanceOf(IOException.class);
+    }
+    @Test void sevenDaysRejectedAndTwoDaysAllowed()throws Exception {
+        assertThatThrownBy(()->service.create(new TransferService.Options("TEXT","x",null,604800,1,null),null,null)).isInstanceOfSatisfying(ApiFailure.class,e->assertThat(e.status).isEqualTo(400));
+        var c=service.create(new TransferService.Options("TEXT","x",null,172800,1,null),null,null);
+        assertThat(java.time.Duration.between(c.transfer().createdAt(),c.transfer().expiresAt()).toSeconds()).isEqualTo(172800);
+    }
+
 }

@@ -10,10 +10,45 @@ async function readError(response: Response): Promise<never> {
   const data = await response.json().catch(() => ({ code: 'NETWORK', message: 'Сервис не ответил. Попробуйте ещё раз.' }))
   throw new ApiError(data.code || "NETWORK", data.message || "Не удалось выполнить запрос. Попробуйте ещё раз.")
 }
-export async function metadata(token: string, manage = false): Promise<Transfer> {
-  const response = await fetch(`/api/${manage ? 'manage' : 'transfers'}/${encodeURIComponent(token)}`)
+const networkError = () => new ApiError('NETWORK', 'Не удалось связаться с сервисом. Проверьте соединение и попробуйте ещё раз.')
+async function readJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const response = await fetch(url, { cache: 'no-store', signal })
+      if ([502, 503, 504].includes(response.status) && attempt < 2) throw networkError()
+      if (!response.ok) return readError(response)
+      return await response.json()
+    } catch (error) {
+      if (signal?.aborted) throw error
+      const transient = error instanceof TypeError || error instanceof ApiError && error.code === 'NETWORK'
+      if (!transient) throw error
+      if (attempt >= 2) throw networkError()
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 400 * (attempt + 1)))
+      if (signal?.aborted) throw new DOMException('Cancelled', 'AbortError')
+    }
+  }
+}
+export function metadata(token: string, manage = false, signal?: AbortSignal): Promise<Transfer> {
+  return readJson(`/api/${manage ? 'manage' : 'transfers'}/${encodeURIComponent(token)}`, signal)
+}
+export async function downloadFile(token: string, password: string, signal: AbortSignal): Promise<void> {
+  let response: Response
+  try {
+    response = await fetch(`/api/transfers/${encodeURIComponent(token)}/download-ticket`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }), signal })
+  } catch (error) { if (signal.aborted) throw error; throw networkError() }
   if (!response.ok) return readError(response)
-  return response.json()
+  const ticket: { url: string; statusUrl: string } = await response.json()
+  if (!/^\/api\/downloads\/[A-Za-z0-9_-]{43}$/.test(ticket.url) || ticket.statusUrl !== `${ticket.url}/status`) throw new Error('Не удалось подготовить скачивание.')
+  // A normal HTTP attachment uses the browser download manager; no Blob URL or file picker API.
+  window.location.assign(ticket.url)
+  for (let attempt = 0; attempt < 300; attempt++) {
+    if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
+    const { state } = await readJson<{ state: string }>(ticket.statusUrl, signal)
+    if (state === 'SENT') return
+    if (state === 'FAILED' || state === 'EXPIRED') throw new Error('Загрузка не завершилась. Попробуйте получить файл снова.')
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 1000))
+  }
+  throw new Error('Браузер ещё обрабатывает загрузку. Проверьте список скачиваний перед повтором.')
 }
 export function createTransfer(data: FormData, progress: (value: number) => void, signal: AbortSignal): Promise<Created> {
   return new Promise((resolve, reject) => {

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent, DragEvent } from 'react'
-import { ApiError, createTransfer, metadata, receive, revoke } from './api'
+import { ApiError, createTransfer, metadata, receive, revoke, downloadFile } from './api'
 import type { Created, Transfer } from './api'
 import { Icon } from './Icons'
 import '@fontsource-variable/manrope'
@@ -39,7 +39,7 @@ function App() {
     <div className="ambient" aria-hidden="true"><div className="ambient-light" /><div className="ambient-line" /></div>
     <header className="site-header">
       <a className="brand" href="/" onClick={(e) => { e.preventDefault(); go('/') }} aria-label="pollyDrop — главная"><span className="brand-symbol" aria-hidden="true"><i>p</i></span><span>pollyDrop<span className="brand-dot">.</span></span></a>
-      <div className="header-actions"><span className="beta-label">BETA / 01</span><button className="help-button" onClick={() => setHelp(true)}><span>Как это работает</span><span className="help-question">?</span></button></div>
+      <div className="header-actions"><span className="beta-label">BETA / 02</span><button className="help-button" onClick={() => setHelp(true)}><span>Как это работает</span><span className="help-question">?</span></button></div>
     </header>
     <main className="main-layout">
       <section className="intro">
@@ -106,7 +106,7 @@ function Composer({ copy, go }: { copy: Copy; go: (path: string) => void }) {
       <input ref={input} type="file" className="visually-hidden" aria-label="Выберите файл" disabled={uploading} onChange={(e) => { choose(e.target.files?.[0]); e.target.value = '' }} />
       {file ? <><div className="selected-file-icon"><Icon name="file" size={35} /><span>{file.name.split('.').at(-1)?.slice(0,5).toUpperCase() || 'FILE'}</span></div><p className="file-name">{file.name}</p><p className="drop-detail">{byteLabel(file.size)} <span>·</span> Готов к передаче</p><button className="file-remove" type="button" disabled={uploading} onClick={() => setFile(null)} aria-label="Убрать файл"><Icon name="close" size={16} /></button><button type="button" className="text-button" disabled={uploading} onClick={() => input.current?.click()}>Выбрать другой</button></> : <><div className="drop-illustration" aria-hidden="true"><div className="drop-paper"><Icon name="file" size={30} /></div><span className="drop-plus"><Icon name="plus" size={16} /></span></div><p className="drop-title">Перетащите файл сюда</p><button type="button" className="text-button" disabled={uploading} onClick={() => input.current?.click()}>или выберите на устройстве <Icon name="arrow" size={14} /></button><p className="drop-limit">Любой формат · до 25 МБ</p></>}
     </div> : <div className="text-zone"><label className="visually-hidden" htmlFor="transfer-text">Текст передачи</label><textarea id="transfer-text" value={text} disabled={uploading} onChange={(e) => { setText(e.target.value); setError('') }} placeholder="Сообщение, ключ или просто пара слов…" spellCheck={false} /><div className="text-count">{byteLabel(new TextEncoder().encode(text).length)} <span>/ 64 КБ</span></div></div>}
-    <div className="settings-grid"><label className="setting"><span className="setting-label"><Icon name="clock" size={15} /> Удалить через</span><div className="select-wrap"><select aria-label="Удалить через" value={ttl} disabled={uploading} onChange={(e) => setTtl(Number(e.target.value))}><option value={600}>10 минут</option><option value={3600}>1 час</option><option value={86400}>24 часа</option><option value={604800}>7 дней</option></select><Icon name="chevron" size={15} /></div></label><label className="setting"><span className="setting-label"><Icon name="download" size={15} /> Получений</span><div className="select-wrap"><select aria-label="Количество получений" value={limit} disabled={uploading} onChange={(e) => setLimit(Number(e.target.value))}><option value={1}>Один раз</option><option value={3}>3 раза</option><option value={5}>5 раз</option><option value={10}>10 раз</option></select><Icon name="chevron" size={15} /></div></label></div>
+    <div className="settings-grid"><label className="setting"><span className="setting-label"><Icon name="clock" size={15} /> Удалить через</span><div className="select-wrap"><select aria-label="Удалить через" value={ttl} disabled={uploading} onChange={(e) => setTtl(Number(e.target.value))}><option value={600}>10 минут</option><option value={3600}>1 час</option><option value={86400}>24 часа</option><option value={172800}>2 дня</option></select><Icon name="chevron" size={15} /></div></label><label className="setting"><span className="setting-label"><Icon name="download" size={15} /> Получений</span><div className="select-wrap"><select aria-label="Количество получений" value={limit} disabled={uploading} onChange={(e) => setLimit(Number(e.target.value))}><option value={1}>Один раз</option><option value={3}>3 раза</option><option value={5}>5 раз</option><option value={10}>10 раз</option></select><Icon name="chevron" size={15} /></div></label></div>
     <div className="password-section"><div className="password-row"><label htmlFor="protect-toggle"><Icon name="lock" size={17} /><span>Защитить паролем</span></label><button id="protect-toggle" type="button" role="switch" aria-checked={protectedLink} aria-label="Защитить паролем" className={`switch ${protectedLink ? 'on' : ''}`} disabled={uploading} onClick={() => setProtected(!protectedLink)}><span /></button></div>{protectedLink && <div className="password-input-wrap"><input type={visible ? 'text' : 'password'} aria-label="Пароль передачи" placeholder="Придумайте пароль" autoComplete="new-password" maxLength={128} value={password} disabled={uploading} onChange={(e) => setPassword(e.target.value)} /><button type="button" aria-label={visible ? 'Скрыть пароль' : 'Показать пароль'} aria-pressed={visible} onClick={() => setVisible(!visible)}><Icon name="eye" size={18} /></button></div>}</div>
     {error && <p className="error-message" role="alert">{error}</p>}
     <button type="submit" className="primary create-button" disabled={!valid || uploading}><span>{uploading ? progress >= 95 ? 'Обрабатываем передачу…' : `Загружаем · ${progress}%` : 'Создать ссылку'}</span><span className="button-disc">{uploading ? <span className="spinner" /> : <Icon name="arrow" size={20} />}</span></button>
@@ -136,8 +136,8 @@ function Result({ result, copy, reset, go }: { result: Created; copy: Copy; rese
 function useTransfer(token: string, owner = false) {
   const [data, setData] = useState<Transfer | null>(null)
   const [error, setError] = useState('')
-  const refresh = async () => { try { setData(await metadata(token, owner)); setError('') } catch (e) { setError(errorMessage(e)) } }
-  useEffect(() => { let live = true; metadata(token, owner).then((d) => { if (live) setData(d) }).catch((e) => { if (live) setError(errorMessage(e)) }); return () => { live = false } }, [token, owner])
+  const refresh = async () => { setError(''); try { setData(await metadata(token, owner)) } catch (e) { setError(errorMessage(e)) } }
+  useEffect(() => { let live = true; const abort = new AbortController(); metadata(token, owner, abort.signal).then((d) => { if (live) setData(d) }).catch((e) => { if (live) setError(errorMessage(e)) }); return () => { live = false; abort.abort() } }, [token, owner])
   useEffect(() => { if (data?.state !== 'IN_PROGRESS') return; const t = window.setInterval(refresh, 1500); return () => clearInterval(t) }, [data?.state, token])
   return { data, error, refresh }
 }
@@ -148,40 +148,49 @@ function Recipient({ token, copy, go }: { token: string; copy: Copy; go: (path: 
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [received, setReceived] = useState(false)
+  const pendingDownload = useRef<AbortController | null>(null)
+  useEffect(() => () => pendingDownload.current?.abort(), [])
   const [content, setContent] = useState<{ text: string; blob: Blob; name: string } | null>(null)
   const download = async (e: FormEvent) => {
     e.preventDefault(); setBusy(true); setError('')
     try {
-      const result = await receive(token, password)
-      if (data?.kind === 'TEXT') setContent({ text: await result.blob.text(), ...result })
-      else saveFile(result.blob, result.name)
+      if (data?.kind === 'TEXT') {
+        const result = await receive(token, password)
+        setContent({ text: await result.blob.text(), ...result })
+      } else {
+        pendingDownload.current = new AbortController()
+        await downloadFile(token, password, pendingDownload.current.signal)
+      }
       setReceived(true); setPassword(''); await refresh()
     } catch (e) { setError(errorMessage(e)); if (!(e instanceof ApiError && (e.code === 'WRONG_PASSWORD' || e.code === 'PASSWORD_REQUIRED'))) await refresh() }
     finally { setBusy(false) }
   }
-  if (loadingError) return <StateCard title="Не удалось открыть." text={loadingError} go={go} />
+  if (loadingError && !data) return <StateCard title="Не удалось открыть." text={loadingError} go={go} retry={refresh} />
   if (!data) return <div className="glass-panel loading-panel" role="status"><span className="spinner" /> Открываем передачу…</div>
   if (!received && unavailable[data.state]) return <StateCard {...unavailable[data.state]} go={go} />
   return <form className="glass-panel receive-panel" onSubmit={download}>
     <span className={`large-file-icon ${received ? 'done' : ''}`}><Icon name={received ? 'check' : data.passwordProtected ? 'lock' : data.kind === 'TEXT' ? 'text' : 'file'} size={36} /></span>
     <p className="eyebrow small">{received ? 'ПЕРЕДАЧА ПОЛУЧЕНА' : data.kind === 'TEXT' ? 'ДЛЯ ВАС ОСТАВИЛИ ТЕКСТ' : 'ДЛЯ ВАС ОСТАВИЛИ ФАЙЛ'}</p>
     <h2>{received ? 'Теперь у вас.' : data.name}</h2>
-    <p className="panel-description">{received ? data.kind === 'TEXT' ? 'Сохраните то, что нужно. Ссылка живёт по правилам отправителя.' : 'Файл отправлен в загрузки браузера. Проверьте, что он сохранился.' : 'Получите данные, пока действуют условия передачи.'}</p>
+    <p className="panel-description">{received ? data.kind === 'TEXT' ? 'Сохраните то, что нужно. Ссылка живёт по правилам отправителя.' : 'Файл передан браузеру. Проверьте список загрузок. Во встроенном браузере Telegram при необходимости откройте ссылку в Safari или Chrome.' : 'Получите данные, пока действуют условия передачи.'}</p>
     {content ? <><div className="received-text" tabIndex={0} aria-label="Полученный текст">{content.text}</div><div className="text-result-actions"><button type="button" className="secondary" onClick={() => copy(content.text, 'Текст скопирован')}><Icon name="copy" size={17} /> Скопировать</button><button type="button" className="secondary" onClick={() => saveFile(content.blob, `${content.name}.txt`)}><Icon name="download" size={17} /> Сохранить</button></div></> : <div className="receive-facts"><span><Icon name="file" size={15} /> {byteLabel(data.bytes)}</span><span><Icon name="clock" size={15} /> До {dateLabel(data.expiresAt)}</span><span><Icon name="download" size={15} /> Осталось: {data.remaining}</span></div>}
     {!received && data.passwordProtected && <label className="receive-password"><span>Пароль от отправителя</span><input type="password" aria-label="Пароль от отправителя" autoComplete="off" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Введите пароль" maxLength={128} required /></label>}
+    {loadingError && <p className="error-message" role="alert">{loadingError} <button type="button" className="text-button" onClick={refresh}>Обновить состояние</button></p>}
     {error && <p className="error-message" role="alert">{error}</p>}
-    {!received ? <button className="primary" disabled={busy || data.state === 'IN_PROGRESS'}><span>{busy ? 'Получаем…' : data.state === 'IN_PROGRESS' ? 'Передача уже открыта' : data.kind === 'TEXT' ? 'Показать текст' : 'Получить файл'}</span>{busy ? <span className="spinner" /> : <Icon name="download" />}</button> : <button type="button" className="secondary wide" onClick={() => go('/')}><Icon name="plus" size={18} /> Создать свою передачу</button>}
+    {!received ? <button className="primary" disabled={busy || data.state === 'IN_PROGRESS'}><span>{busy ? data.kind === 'FILE' ? 'Передаём браузеру…' : 'Получаем…' : data.state === 'IN_PROGRESS' ? 'Передача уже открыта' : data.kind === 'TEXT' ? 'Показать текст' : 'Получить файл'}</span>{busy ? <span className="spinner" /> : <Icon name="download" />}</button> : <button type="button" className="secondary wide" onClick={() => go('/')}><Icon name="plus" size={18} /> Создать свою передачу</button>}
     {!received && <p className="form-footnote">При обрыве можно попробовать снова.</p>}
   </form>
 }
-function StateCard({ title, text, go }: { title: string; text: string; go: (path: string) => void }) { return <div className="glass-panel state-card"><span className="large-file-icon"><Icon name="clock" size={34} /></span><h2>{title}</h2><p className="panel-description">{text}</p><button className="secondary wide" onClick={() => go('/')}>Создать передачу <Icon name="arrow" size={18} /></button></div> }
+function StateCard({ title, text, go, retry }: { title: string; text: string; go: (path: string) => void; retry?: () => Promise<void> }) {
+  return <div className="glass-panel state-card"><span className="large-file-icon"><Icon name="clock" size={34} /></span><h2>{title}</h2><p className="panel-description">{text}</p>{retry && <button className="primary" onClick={retry}>Попробовать снова <Icon name="arrow" size={18} /></button>}<button className="secondary wide" onClick={() => go('/')}>Создать передачу <Icon name="arrow" size={18} /></button></div>
+}
 function Management({ token, go }: { token: string; go: (path: string) => void }) {
   const { data, error: loadError, refresh } = useTransfer(token, true)
   const [confirm, setConfirm] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const remove = async () => { setBusy(true); try { await revoke(token); await refresh(); setConfirm(false) } catch (e) { setError(errorMessage(e)) } finally { setBusy(false) } }
-  if (loadError) return <StateCard title="Нет доступа." text={loadError} go={go} />
+  if (loadError && !data) return <StateCard title="Нет доступа." text={loadError} go={go} retry={refresh} />
   if (!data) return <div className="glass-panel loading-panel" role="status"><span className="spinner" /> Открываем управление…</div>
   const active = data.state === 'AVAILABLE' || data.state === 'IN_PROGRESS'
   return <div className="glass-panel manage-panel"><span className="large-file-icon"><Icon name="shield" size={34} /></span><p className="eyebrow small">ТОЛЬКО ДЛЯ ОТПРАВИТЕЛЯ</p><h2>{data.name}</h2><p className="panel-description">{active ? 'Передача доступна по вашим условиям.' : unavailable[data.state]?.text}</p><dl className="manage-facts"><div><dt>Состояние</dt><dd><i className={`status-dot ${active ? '' : 'ended'}`} />{active ? data.state === 'IN_PROGRESS' ? 'Получают сейчас' : 'Доступна' : data.state === 'REVOKED' ? 'Отозвана' : data.state === 'EXPIRED' ? 'Срок истёк' : 'Получена'}</dd></div><div><dt>Получений</dt><dd>{data.downloads} из {data.maxDownloads}</dd></div><div><dt>Действует до</dt><dd>{dateLabel(data.expiresAt)}</dd></div><div><dt>Размер</dt><dd>{byteLabel(data.bytes)}</dd></div><div><dt>Пароль</dt><dd>{data.passwordProtected ? 'Установлен' : 'Без пароля'}</dd></div></dl>{error && <p className="error-message" role="alert">{error}</p>}{active && (confirm ? <div className="revoke-confirm"><p>Закрыть доступ? Вернуть эту ссылку не получится.</p><button className="danger" disabled={busy} onClick={remove}>{busy ? 'Закрываем…' : 'Да, отозвать передачу'}</button><button className="text-button" onClick={() => setConfirm(false)}>Оставить доступной</button></div> : <button className="secondary wide" onClick={() => setConfirm(true)}><Icon name="close" size={18} /> Отозвать передачу</button>)}<button className="text-button manage-new" onClick={() => go('/')}>Новая передача <Icon name="arrow" size={16} /></button></div>

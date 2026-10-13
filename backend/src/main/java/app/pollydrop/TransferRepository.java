@@ -21,6 +21,6 @@ public interface TransferRepository extends JpaRepository<Transfer, UUID> {
     @Modifying
     @Query("update Transfer t set t.activeLease = null where t.activeLease is not null")
     int clearAbandonedLeases();
-    @Query("select t.id from Transfer t where t.purgedAt is null and t.activeLease is null and (t.revoked = true or t.expiresAt <= :now or t.downloads >= t.maxDownloads)")
+    @Query("select t.id from Transfer t where t.purgedAt is null and (t.revoked = true or t.expiresAt <= :now or t.downloads >= t.maxDownloads)")
     List<UUID> cleanupCandidates(@Param("now") Instant now);
 }

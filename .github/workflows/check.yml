@@ -29,3 +29,28 @@ jobs:
         env:
           POSTGRES_PASSWORD: ci-config-validation-only
           APP_MASTER_KEY: ci-config-validation-only
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install playwright==1.62.0
+      - run: python -m playwright install --with-deps chromium webkit
+      - name: Start app for browser regression checks
+        run: |
+          docker compose up -d --no-build
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8088/api/health >/dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:8088/api/health
+      - name: Chromium native download and metadata recovery
+        run: python frontend/e2e/smoke.py
+        env:
+          BASE_URL: http://127.0.0.1:8088
+          BROWSER: chromium
+      - name: WebKit with iPhone emulation
+        run: python frontend/e2e/smoke.py
+        env:
+          BASE_URL: http://127.0.0.1:8088
+          BROWSER: webkit
+      - if: always()
+        run: docker compose down

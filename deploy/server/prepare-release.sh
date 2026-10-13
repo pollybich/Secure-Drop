@@ -3,10 +3,10 @@
 set -euo pipefail
 DEPLOY_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd -- "$DEPLOY_DIR/../.." && pwd)"
-VERSION='v0.1.0-beta.1'
+VERSION='v0.1.0-beta.2'
 BASE_URL="https://github.com/pollybich/pollyDrop/releases/download/$VERSION"
-JAR='pollydrop-0.1.0-beta.1.jar'
-FRONTEND='pollydrop-interface-0.1.0-beta.1.tar.gz'
+JAR='pollydrop-0.1.0-beta.2.jar'
+FRONTEND='pollydrop-interface-0.1.0-beta.2.tar.gz'
 for program in curl sha256sum tar python3; do
   if ! command -v "$program" >/dev/null 2>&1; then echo "Required program: $program" >&2; exit 1; fi
 done

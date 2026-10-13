@@ -1,4 +1,7 @@
 {
+    servers {
+        protocols h1 h2
+    }
     # Request paths contain secret transfer tokens. Keep them out of runtime error logs.
     log {
         exclude http.log.error

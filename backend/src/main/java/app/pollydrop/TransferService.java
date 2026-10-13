@@ -18,8 +18,10 @@ public class TransferService {
     private final CipherStorage storage;
     private final PasswordGate passwords;
     private final long maxBytes;
-    public TransferService(TransferRepository repository,CipherStorage storage,PasswordGate passwords,@Value("${app.max-bytes}") long maxBytes) {
-        this.repository=repository;this.storage=storage;this.passwords=passwords;this.maxBytes=maxBytes;
+    private final ContentCleanup cleanup;
+    private final ExpiryScheduler expiry;
+    public TransferService(TransferRepository repository,CipherStorage storage,PasswordGate passwords,ContentCleanup cleanup,ExpiryScheduler expiry,@Value("${app.max-bytes}") long maxBytes) {
+        this.repository=repository;this.storage=storage;this.passwords=passwords;this.maxBytes=maxBytes;this.cleanup=cleanup;this.expiry=expiry;
     }
     public record View(String kind,String name,long bytes,Instant createdAt,Instant expiresAt,int maxDownloads,int downloads,int remaining,boolean passwordProtected,String state) {}
     public record Created(String readToken,String manageToken,View transfer) {}
@@ -28,7 +30,7 @@ public class TransferService {
     @Transactional
     public Created create(Options options,byte[] file,String filename) throws IOException {
         if(options==null)throw new ApiFailure(400,"INVALID_OPTIONS","Укажите параметры передачи.");
-        if(options.ttlSeconds<600 || options.ttlSeconds>604800 || options.maxDownloads<1 || options.maxDownloads>10) throw new ApiFailure(400,"INVALID_OPTIONS","Проверьте срок и число получений.");
+        if(options.ttlSeconds<600 || options.ttlSeconds>172800 || options.maxDownloads<1 || options.maxDownloads>10) throw new ApiFailure(400,"INVALID_OPTIONS","Проверьте срок и число получений.");
         boolean text="TEXT".equals(options.kind);
         if(!text && !"FILE".equals(options.kind)) throw new ApiFailure(400,"INVALID_KIND","Выберите файл или текст.");
         byte[] contents=text?(options.text==null?new byte[0]:options.text.getBytes(StandardCharsets.UTF_8)):file;
@@ -43,7 +45,7 @@ public class TransferService {
         t.mediaType=text?"text/plain; charset=utf-8":"application/octet-stream";t.byteSize=contents.length;t.createdAt=Instant.now();t.expiresAt=t.createdAt.plusSeconds(options.ttlSeconds);t.maxDownloads=options.maxDownloads;
         if(options.password!=null && !options.password.isEmpty())t.passwordHash=passwords.encode(options.password);
         storage.write(t.id,contents);
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization(){@Override public void afterCompletion(int status){if(status!=STATUS_COMMITTED)try{storage.delete(t.id);}catch(IOException ignored){}}});
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization(){@Override public void afterCommit(){expiry.schedule(t.id,t.expiresAt);}@Override public void afterCompletion(int status){if(status!=STATUS_COMMITTED)try{storage.delete(t.id);}catch(IOException ignored){}}});
         repository.saveAndFlush(t);log.info("transfer_created id={} kind={}",t.id,t.kind);
         return new Created(read,manage,view(t,true));
     }
@@ -56,8 +58,30 @@ public class TransferService {
         Transfer t=repository.lockRead(Tokens.hash(token)).orElseThrow(TransferService::missing);
         requireAvailable(t);passwords.check(t,password,client);
         if(t.activeLease!=null)throw new ApiFailure(409,"IN_PROGRESS","Передача уже открыта. Дождитесь завершения или попробуйте снова.");
+        return reserveRow(t);
+    }
+    @Transactional
+    public UUID authorizeDownload(String token,String password,String client){
+        Transfer t=repository.lockRead(Tokens.hash(token)).orElseThrow(TransferService::missing);
+        requireAvailable(t);passwords.check(t,password,client);
+        if(t.activeLease!=null)throw new ApiFailure(409,"IN_PROGRESS","Передача уже открыта. Попробуйте после завершения.");
+        return t.id;
+    }
+    @Transactional
+    public Lease reserveAuthorized(UUID id){
+        Transfer t=repository.lockId(id).orElseThrow(TransferService::missing);
+        requireAvailable(t);
+        if(t.activeLease!=null)throw new ApiFailure(409,"IN_PROGRESS","Передача уже открыта. Попробуйте после завершения.");
+        return reserveRow(t);
+    }
+    private Lease reserveRow(Transfer t){
         t.activeLease=UUID.randomUUID();repository.saveAndFlush(t);
         return new Lease(t.id,t.activeLease,t.name,t.mediaType,t.byteSize,t.expiresAt);
+    }
+    private void deleteAfterCommit(UUID id){
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization(){
+            @Override public void afterCommit(){cleanup.discard(id);expiry.cancel(id);}
+        });
     }
     @Transactional
     public void finish(Lease lease,boolean completed) {
@@ -65,24 +89,21 @@ public class TransferService {
         if(!lease.leaseId.equals(t.activeLease)) return;
         t.activeLease=null;
         if(completed)t.downloads++;
+        if(t.downloads>=t.maxDownloads || t.revoked || !t.expiresAt.isAfter(Instant.now()))deleteAfterCommit(t.id);
         repository.saveAndFlush(t);log.info(completed?"transfer_received id={}":"transfer_interrupted id={}",t.id);
     }
     @Transactional
     public void revoke(String manageToken) {
-        Transfer t=repository.lockManage(Tokens.hash(manageToken)).orElseThrow(TransferService::missing);t.revoked=true;repository.saveAndFlush(t);log.info("transfer_revoked id={}",t.id);
+        Transfer t=repository.lockManage(Tokens.hash(manageToken)).orElseThrow(TransferService::missing);t.revoked=true;repository.saveAndFlush(t);deleteAfterCommit(t.id);log.info("transfer_revoked id={}",t.id);
     }
     @Transactional(readOnly=true)
     public boolean interrupted(UUID id,UUID lease) { return repository.findById(id).map(t->t.revoked || !t.expiresAt.isAfter(Instant.now()) || !lease.equals(t.activeLease)).orElse(true); }
     @Transactional
     public void recover() { repository.clearAbandonedLeases(); }
-    public void cleanup() {
-        for(UUID id:repository.cleanupCandidates(Instant.now())) {
-            // Purged rows remain as management metadata; a missing file is a successful deletion.
-            try { storage.delete(id); markPurged(id); } catch(IOException e) { log.warn("transfer_cleanup_pending id={}",id); }
-        }
+    public void cleanup(){for(UUID id:repository.cleanupCandidates(Instant.now()))cleanup.discard(id);}
+    public void restoreExpirations(){
+        for(Transfer t:repository.findAll())if(!t.revoked && t.purgedAt==null && t.downloads<t.maxDownloads && t.expiresAt.isAfter(Instant.now()))expiry.schedule(t.id,t.expiresAt);
     }
-    @Transactional
-    public void markPurged(UUID id) { repository.findById(id).ifPresent(t->{t.purgedAt=Instant.now();repository.save(t);}); }
     private static ApiFailure missing(){return new ApiFailure(404,"NOT_FOUND","Этой передачи не существует.");}
     private static void requireAvailable(Transfer t) {
         if(t.revoked)throw new ApiFailure(410,"REVOKED","Отправитель отозвал передачу.");

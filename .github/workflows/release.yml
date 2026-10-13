@@ -5,7 +5,7 @@ on:
       tag:
         description: Existing release tag
         required: true
-        default: v0.1.0-beta.1
+        default: v0.1.0-beta.2
 permissions:
   contents: write
 jobs:
@@ -31,10 +31,15 @@ jobs:
       - run: ./scripts/init-env.sh
       - run: docker compose build
       - name: Package tested builds
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
         run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]
+          VERSION="${RELEASE_TAG#v}"
+          test -f "backend/target/pollydrop-$VERSION.jar"
           mkdir release
           cp backend/target/pollydrop-*.jar release/
-          tar -czf release/pollydrop-interface-0.1.0-beta.1.tar.gz -C frontend/dist .
+          tar -czf "release/pollydrop-interface-$VERSION.tar.gz" -C frontend/dist .
           cp docs/images/desktop.png release/pollydrop-desktop.png
           cp docs/images/mobile.png release/pollydrop-mobile.png
           cd release
@@ -46,7 +51,7 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          test "$RELEASE_TAG" = 'v0.1.0-beta.1'
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]
           gh release view "$RELEASE_TAG" --json tagName
           gh release upload "$RELEASE_TAG" release/* --clobber
           gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false --notes-file "docs/releases/$RELEASE_TAG.md"

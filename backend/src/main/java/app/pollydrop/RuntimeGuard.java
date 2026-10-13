@@ -20,7 +20,7 @@ public class RuntimeGuard implements ApplicationRunner {
             result.next();if(!result.getBoolean(1)){lock.close();throw new IllegalStateException("This beta supports one backend instance per database");}
         }
         // The database lock proves that a previous process can no longer own a sending lease.
-        transfers.recover();storage.removeOrphans(repository.findAll().stream().map(t->t.id).collect(Collectors.toSet()));transfers.cleanup();ready=true;
+        transfers.recover();storage.removeOrphans(repository.findAll().stream().map(t->t.id).collect(Collectors.toSet()));transfers.cleanup();transfers.restoreExpirations();ready=true;
     }
     public synchronized boolean ready(){
         if(!ready)return false;
@@ -28,7 +28,7 @@ public class RuntimeGuard implements ApplicationRunner {
         catch(SQLException e){ready=false;}
         return ready;
     }
-    @Scheduled(fixedDelay=30000)
+    @Scheduled(fixedDelay=1000)
     public void cleanup(){if(ready())transfers.cleanup();}
     @PreDestroy public void close()throws SQLException {ready=false;if(lock!=null)lock.close();}
 }
