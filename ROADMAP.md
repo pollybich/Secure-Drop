@@ -1,3 +1,7 @@
+![pollyDrop · roadmap](docs/images/roadmap.svg)
+
+**Русский** · [English](docs/en/ROADMAP.md) · [← pollyDrop](README.md)
+
 # Roadmap
 
 План pollyDrop без календарных дат. Отметка означает реализованное и проверенное поведение. Полный реестр функций — [REQUIREMENTS](docs/REQUIREMENTS.md); в первую бету включён гостевой обмен.

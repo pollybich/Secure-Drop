@@ -1,0 +1,6 @@
+# Optional update override: compile the checkout, keeping release assets unchanged.
+services:
+  frontend:
+    build:
+      context: ./
+      dockerfile: deploy/server/runtime/frontend/Dockerfile.source

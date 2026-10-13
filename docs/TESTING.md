@@ -1,3 +1,7 @@
+![pollyDrop · testing](images/testing.svg)
+
+**Русский** · [English](en/TESTING.md) · [← pollyDrop](../README.md)
+
 # Проверка v0.1.0-beta.2
 
 ## Сервер

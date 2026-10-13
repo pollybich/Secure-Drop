@@ -2,13 +2,24 @@
 set -euo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
+if [ "$#" -gt 1 ] || { [ "$#" -eq 1 ] && [ "$1" != "--frontend-from-source" ]; }; then
+  echo "Usage: $0 [--frontend-from-source]" >&2; exit 1
+fi
 if [ "$(id -u)" -ne 0 ]; then echo 'Run this script as root on the server.' >&2; exit 1; fi
 if [ ! -f .env ]; then echo 'Existing installation .env is required. Use the installer for a fresh installation.' >&2; exit 1; fi
 COMPOSE=(docker compose -p pollydrop-public -f compose.yaml -f deploy/server/compose.server.yaml)
 ./deploy/server/prepare-release.sh
 "${COMPOSE[@]}" config --quiet
 # Build all replacements before restarting the installed services.
-"${COMPOSE[@]}" build
+if [ "${1:-}" = '--frontend-from-source' ]; then
+  # Compile the current checkout without replacing any published release asset.
+  # Reuse the production proxy configuration and the same Compose service/volumes.
+  "${COMPOSE[@]}" -f deploy/server/compose.frontend-source.yaml build frontend
+  COMPOSE+=(-f deploy/server/compose.frontend-source.yaml)
+  "${COMPOSE[@]}" build db backend
+else
+  "${COMPOSE[@]}" build
+fi
 "${COMPOSE[@]}" up -d --no-build
 # Bind-mounted configuration changes alone do not restart Caddy.
 "${COMPOSE[@]}" exec -T caddy caddy reload --config /etc/caddy/Caddyfile
