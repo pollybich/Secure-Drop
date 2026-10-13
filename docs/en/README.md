@@ -68,15 +68,9 @@ git pull --ff-only
 ./deploy/server/update-debian.sh
 ```
 
-This uses SHA-256-verified published assets and preserves secrets and volumes. Caddy reloads with HTTP/1.1 and HTTP/2; HTTP/3 is disabled because UDP 443 is not exposed. See [deployment](DEPLOYMENT.md).
+The script preserves secrets and volumes, downloads the SHA-256-verified released backend and **builds the frontend from the current checkout**. A normal update therefore applies the one-hour default without an extra flag or a new version. Docker handles Node.js compilation; no host Node.js is required. Caddy reloads with HTTP/1.1 and HTTP/2. See [deployment](DEPLOYMENT.md).
 
-To apply current interface source changes without a new release:
-
-```bash
-./deploy/server/update-debian.sh --frontend-from-source
-```
-
-Docker compiles the frontend from the checkout; the backend stays on the published release. Without the flag, the published frontend is used instead.
+`--frontend-from-source` remains compatible. Only an explicit `--frontend-from-release` installs the published frontend, whose defaults may differ from current source.
 
 ## Development
 

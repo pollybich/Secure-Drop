@@ -1,4 +1,4 @@
-# Optional update override: compile the checkout, keeping release assets unchanged.
+# Default server frontend: compile the checkout, keeping release assets unchanged.
 services:
   frontend:
     build:

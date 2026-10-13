@@ -8,7 +8,7 @@ apt-get update
 apt-get install -y ca-certificates curl python3
 systemctl enable --now docker
 docker info >/dev/null
-COMPOSE=(docker compose -p pollydrop-public -f compose.yaml -f deploy/server/compose.server.yaml)
+COMPOSE=(docker compose -p pollydrop-public -f compose.yaml -f deploy/server/compose.server.yaml -f deploy/server/compose.frontend-source.yaml)
 if ! docker compose version >/dev/null 2>&1; then
   VERSION='v5.6.0'
   case "$(uname -m)" in x86_64) ARCH='x86_64';; aarch64|arm64) ARCH='aarch64';; *) echo 'Unsupported CPU architecture.' >&2; exit 1;; esac
