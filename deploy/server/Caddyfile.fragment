@@ -1,0 +1,10 @@
+# Add this block to an existing Caddyfile; do not replace other site blocks.
+drop.pollybich.ru {
+    request_body {
+        max_size 32MB
+    }
+    reverse_proxy 127.0.0.1:8088 {
+        flush_interval -1
+    }
+}
+# Access logging is disabled by default. Do not enable URL logging for this site.
