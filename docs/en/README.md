@@ -3,7 +3,7 @@
 <p align="center"><a href="../../README.md">Русский</a> · <b>English</b></p>
 <p align="center"><a href="https://drop.pollybich.ru">Open the site</a> · <a href="https://github.com/pollybich/pollyDrop/releases">Releases</a> · <a href="ROADMAP.md">Roadmap</a> · <a href="REQUIREMENTS.md">Requirements</a></p>
 
-# pollyDrop
+# <img src="../images/icon.svg" width="38" height="38" alt="" /> pollyDrop
 
 Temporary file and text transfers without registration. Set a lifetime, a download limit and an optional password, then share the recipient link. A separate secret management link lets you check the status and revoke access.
 

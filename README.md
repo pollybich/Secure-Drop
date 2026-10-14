@@ -3,7 +3,7 @@
 <p align="center"><b>Русский</b> · <a href="docs/en/README.md">English</a></p>
 <p align="center"><a href="https://drop.pollybich.ru">Открыть сайт</a> · <a href="https://github.com/pollybich/pollyDrop/releases">Релизы</a> · <a href="ROADMAP.md">Роадмап</a> · <a href="docs/REQUIREMENTS.md">Требования</a></p>
 
-# pollyDrop
+# <img src="docs/images/icon.svg" width="38" height="38" alt="" /> pollyDrop
 
 Временная передача файлов и текста без регистрации. Отправитель задаёт срок, лимит получений и пароль, затем делится ссылкой. Отдельная секретная ссылка позволяет проверить состояние и отозвать передачу.
 
