@@ -29,5 +29,6 @@ if [ ! -x "${JAVA_HOME:-/usr/lib/jvm/default-java}/bin/javac" ] && ! command -v 
   # Keep the platform's existing trusted CA roots; TLS verification stays enabled.
   if [ -f /etc/ssl/certs/java/cacerts ]; then cp /etc/ssl/certs/java/cacerts .tools/jdk21/lib/security/cacerts; fi
 fi
+python3 scripts/prepare-geoip.py
 npm --prefix frontend ci
 docker compose -p pollydrop-dev -f compose.yaml -f compose.dev.yaml up -d db

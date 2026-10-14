@@ -15,13 +15,15 @@ with sync_playwright() as p:
     browser = browser_type.launch(**launch)
     device = p.devices['iPhone 13'] if engine == 'webkit' else {'viewport': {'width':1440, 'height':1000}}
     context = browser.new_context(**device, accept_downloads=True)
+    context.route('**/api/locale', lambda route: route.fulfill(json={'country':'RU','language':'ru'}))
     page = context.new_page()
     failures = []
     page.on('pageerror', lambda error: failures.append(str(error)))
     page.goto(BASE)
     expect(page.get_by_text('Готов к передаче', exact=True)).to_be_visible()
     expect(page.get_by_role('button', name='Создать ссылку')).to_be_disabled()
-    expect(page.locator('.brand-symbol')).to_have_text('s')
+    expect(page.locator('.brand-symbol')).to_have_text('p')
+    expect(page.get_by_label('Удалить через', exact=True)).to_have_value('3600')
     assert '7 дней' not in page.get_by_label('Удалить через', exact=True).inner_text()
     expect(page.get_by_label('Удалить через', exact=True).locator('option[value="172800"]')).to_have_text('2 дня')
     page.wait_for_timeout(600)

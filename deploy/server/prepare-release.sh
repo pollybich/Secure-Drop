@@ -3,10 +3,19 @@
 set -euo pipefail
 DEPLOY_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd -- "$DEPLOY_DIR/../.." && pwd)"
-VERSION='v0.1.0-beta.2'
-BASE_URL="https://github.com/pollybich/pollyDrop/releases/download/$VERSION"
-JAR='pollydrop-0.1.0-beta.2.jar'
-FRONTEND='pollydrop-interface-0.1.0-beta.2.tar.gz'
+VERSION='v0.1.0-beta.3'
+REPOSITORY="$(python3 - <<'PYCODE'
+import re, subprocess
+from urllib.parse import urlsplit
+url=subprocess.check_output(['git','remote','get-url','origin'],text=True).strip()
+repo=urlsplit(url).path.strip('/').removesuffix('.git') if '://' in url else url.split(':',1)[1].removesuffix('.git')
+if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+',repo): raise SystemExit('Unsupported repository remote')
+print(repo)
+PYCODE
+)"
+BASE_URL="https://github.com/$REPOSITORY/releases/download/$VERSION"
+JAR='pollydrop-0.1.0-beta.3.jar'
+FRONTEND='pollydrop-interface-0.1.0-beta.3.tar.gz'
 for program in curl sha256sum tar python3; do
   if ! command -v "$program" >/dev/null 2>&1; then echo "Required program: $program" >&2; exit 1; fi
 done

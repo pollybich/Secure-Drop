@@ -1,3 +1,4 @@
+import { t, apiErrorText } from './i18n'
 export type Transfer = {
   kind: 'FILE' | 'TEXT'; name: string; bytes: number; createdAt: string; expiresAt: string;
   maxDownloads: number; downloads: number; remaining: number; passwordProtected: boolean;
@@ -7,10 +8,10 @@ export type Created = { readToken: string; manageToken: string; transfer: Transf
 export class ApiError extends Error { constructor(public code: string, message: string) { super(message) } }
 
 async function readError(response: Response): Promise<never> {
-  const data = await response.json().catch(() => ({ code: 'NETWORK', message: 'Сервис не ответил. Попробуйте ещё раз.' }))
-  throw new ApiError(data.code || "NETWORK", data.message || "Не удалось выполнить запрос. Попробуйте ещё раз.")
+  const data = await response.json().catch(() => ({ code: 'NETWORK', message: t("Сервис не ответил. Попробуйте ещё раз.") }))
+  throw new ApiError(data.code || "NETWORK", apiErrorText(data.code, data.message) || t("Не удалось выполнить запрос. Попробуйте ещё раз."))
 }
-const networkError = () => new ApiError('NETWORK', 'Не удалось связаться с сервисом. Проверьте соединение и попробуйте ещё раз.')
+const networkError = () => new ApiError('NETWORK', t("Не удалось связаться с сервисом. Проверьте соединение и попробуйте ещё раз."))
 async function readJson<T>(url: string, signal?: AbortSignal): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
@@ -38,17 +39,17 @@ export async function downloadFile(token: string, password: string, signal: Abor
   } catch (error) { if (signal.aborted) throw error; throw networkError() }
   if (!response.ok) return readError(response)
   const ticket: { url: string; statusUrl: string } = await response.json()
-  if (!/^\/api\/downloads\/[A-Za-z0-9_-]{43}$/.test(ticket.url) || ticket.statusUrl !== `${ticket.url}/status`) throw new Error('Не удалось подготовить скачивание.')
+  if (!/^\/api\/downloads\/[A-Za-z0-9_-]{43}$/.test(ticket.url) || ticket.statusUrl !== `${ticket.url}/status`) throw new Error(t("Не удалось подготовить скачивание."))
   // A normal HTTP attachment uses the browser download manager; no Blob URL or file picker API.
   window.location.assign(ticket.url)
   for (let attempt = 0; attempt < 300; attempt++) {
     if (signal.aborted) throw new DOMException('Cancelled', 'AbortError')
     const { state } = await readJson<{ state: string }>(ticket.statusUrl, signal)
     if (state === 'SENT') return
-    if (state === 'FAILED' || state === 'EXPIRED') throw new Error('Загрузка не завершилась. Попробуйте получить файл снова.')
+    if (state === 'FAILED' || state === 'EXPIRED') throw new Error(t("Загрузка не завершилась. Попробуйте получить файл снова."))
     await new Promise<void>((resolve) => window.setTimeout(resolve, 1000))
   }
-  throw new Error('Браузер ещё обрабатывает загрузку. Проверьте список скачиваний перед повтором.')
+  throw new Error(t("Браузер ещё обрабатывает загрузку. Проверьте список скачиваний перед повтором."))
 }
 export function createTransfer(data: FormData, progress: (value: number) => void, signal: AbortSignal): Promise<Created> {
   return new Promise((resolve, reject) => {
@@ -61,12 +62,12 @@ export function createTransfer(data: FormData, progress: (value: number) => void
     xhr.onload = () => {
       cleanup()
       let response
-      try { response = JSON.parse(xhr.responseText) } catch { reject(new Error('Сервис не ответил. Попробуйте ещё раз.')); return }
+      try { response = JSON.parse(xhr.responseText) } catch { reject(new Error(t("Сервис не ответил. Попробуйте ещё раз."))); return }
       if (xhr.status >= 200 && xhr.status < 300) { progress(100); resolve(response) }
-      else reject(new ApiError(response.code, response.message || 'Не удалось создать передачу.'))
+      else reject(new ApiError(response.code, apiErrorText(response.code, response.message) || t("Не удалось создать передачу.")))
     }
-    xhr.onerror = () => { cleanup(); reject(new Error('Нет соединения с сервером. Попробуйте ещё раз.')) }
-    xhr.onabort = () => { cleanup(); reject(new DOMException('Передача отменена.', 'AbortError')) }
+    xhr.onerror = () => { cleanup(); reject(new Error(t("Нет соединения с сервером. Попробуйте ещё раз."))) }
+    xhr.onabort = () => { cleanup(); reject(new DOMException(t("Передача отменена."), 'AbortError')) }
     xhr.send(data)
   })
 }

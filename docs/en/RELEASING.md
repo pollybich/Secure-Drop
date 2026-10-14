@@ -6,7 +6,7 @@
 
 Each completed update gets a new GitHub Release with a new version/tag, notes, server JAR, frontend archive and SHA256SUMS. Group related fixes into one update. Never overwrite a published tag or asset.
 
-Exception: the owner explicitly requests a source-only change without a new version/release. Keep the existing release intact and use normal `update-debian.sh` updates, which compile the current frontend checkout.
+Exception: the owner explicitly requests a source-only change without a new version/release. Keep the existing release intact and use `update-debian.sh --frontend-from-source` to compile the checkout; normal updates use published builds.
 
 1. Synchronize Maven/frontend versions, lockfile, health response, Docker JAR path and server scripts.
 2. Add `docs/releases/<tag>.md` and update behavior documentation.

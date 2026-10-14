@@ -7,15 +7,15 @@
 
 Temporary file and text transfers without registration. Set a lifetime, a download limit and an optional password, then share the recipient link. A separate secret management link lets you check the status and revoke access.
 
-**Current beta: v0.1.0-beta.2.** React + TypeScript, Java 21 + Spring Boot, PostgreSQL and Docker. A responsive light interface with frosted glass, editorial typography and subtle motion, respecting reduced-motion preferences.
+**Current beta: v0.1.0-beta.3.** React + TypeScript, Java 21 + Spring Boot, PostgreSQL and Docker. A responsive light interface with frosted glass, editorial typography and subtle motion, respecting reduced-motion preferences.
 
 ## ✳ Interface
 
-<p align="center"><img src="../images/desktop.png" alt="pollyDrop transfer form on desktop" width="100%" /></p>
+<p align="center"><img src="../images/desktop-en.png" alt="pollyDrop transfer form on desktop" width="100%" /></p>
 <details>
 <summary>See the mobile interface</summary>
 
-<p align="center"><img src="../images/mobile.png" alt="pollyDrop on mobile" width="320" /></p>
+<p align="center"><img src="../images/mobile-en.png" alt="pollyDrop on mobile" width="320" /></p>
 </details>
 
 | Send | Set the limits | Let it go |
@@ -25,6 +25,7 @@ Temporary file and text transfers without registration. Set a lifetime, a downlo
 ## ◇ Available today
 
 - Files up to 25 MiB; UTF-8 text up to 64 KiB.
+- Russian/English interfaces, RU / EN switch, country-based initial choice and remembered manual preference.
 - Lifetime: 10 minutes, 1 hour, 24 hours or 2 days. The current source defaults to **1 hour**.
 - 1, 3, 5 or 10 successful server-side deliveries.
 - Optional password, separate management link and revocation.
@@ -46,6 +47,7 @@ Requires Docker Engine with Compose, Bash and Python 3.
 git clone https://github.com/pollybich/pollyDrop.git
 cd pollyDrop
 ./scripts/init-env.sh
+python3 scripts/prepare-geoip.py
 docker compose up --build -d
 ```
 
@@ -68,11 +70,11 @@ git pull --ff-only
 ./deploy/server/update-debian.sh
 ```
 
-The script preserves secrets and volumes, downloads the SHA-256-verified released backend and **builds the frontend from the current checkout**. A normal update therefore applies the one-hour default without an extra flag or a new version. Docker handles Node.js compilation; no host Node.js is required. Caddy reloads with HTTP/1.1 and HTTP/2. See [deployment](DEPLOYMENT.md).
+The script preserves secrets and volumes, downloads the SHA-256-verified released backend and installs the **prebuilt frontend from the release**. A normal update therefore applies the one-hour default without an extra flag or a new version. Docker handles Node.js compilation; no host Node.js is required. Caddy reloads with HTTP/1.1 and HTTP/2. See [deployment](DEPLOYMENT.md).
 
 If the old 24-hour interface persists, run `./deploy/server/update-interface.sh` to apply a checked prebuilt snapshot without Node.js compilation and verify the served JavaScript.
 
-`--frontend-from-source` remains compatible. Only an explicit `--frontend-from-release` installs the published frontend, whose defaults may differ from current source.
+`--frontend-from-source` remains compatible. The released frontend is the default; `--frontend-from-source` explicitly compiles the checkout.
 
 ## Development
 
@@ -101,6 +103,8 @@ Integration tests use a separate Testcontainers database. See [testing](TESTING.
 ## Beta boundaries
 
 Accounts, an account dashboard, advertising and corporate administration are planned. Guest transfer management already works through a secret link.
+
+Country lookup uses a bundled [DB-IP Lite](https://db-ip.com) database without sending visitor IPs to an external service. Russian is selected for Russia; English for other or unknown countries. Manual choice takes priority. The [CC BY 4.0 license](../../licenses/DBIP-LICENSE.txt), source and checksum are recorded in [configuration](../../config/geoip-source.json).
 
 Encryption happens on the server; this is **not end-to-end encryption**. Metadata remains after content deletion. Backup retention is the administrator’s responsibility. Password rate limits are in memory, reset on restart and use the direct connection IP; proxy users may share it.
 

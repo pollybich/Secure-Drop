@@ -2,9 +2,11 @@
 
 [Русский](../../deploy/server/README.md) · **English** · [← pollyDrop](README.md)
 
-# Debian 13 deployment
+# Debian 13 · drop.pollybich.ru
 
-Domain: `drop.pollybich.ru`. Requires an existing Docker installation and free TCP ports 80, 443 and 8088. Run as root on your own server; no SSH passwords or keys need to be shared.
+Requires Docker Engine, available TCP ports 80/443 and a DNS record pointing `drop.pollybich.ru` to your server. Run as the server owner; no SSH credentials need to be shared.
+
+## Fresh installation
 
 ```bash
 apt-get update && apt-get install -y git
@@ -13,61 +15,62 @@ cd /opt/pollydrop
 ./deploy/server/install-debian.sh
 ```
 
-If the directory exists, inspect it first; cloning will not overwrite it. The installer downloads an official Compose release if needed and verifies SHA-256, then downloads verified pollyDrop v0.1.0-beta.2 assets. The backend uses the released JAR; Docker compiles the current checkout’s frontend. No host Java/Node compiler is required. It creates `.env` locally only once. Generated assets live in ignored `.runtime/server`.
+Inspect existing directories first. The installer adds a missing official Compose release with SHA-256 verification, downloads checked `v0.1.0-beta.3` backend/frontend assets and packages them into containers. No host Java or Node.js compiler is needed.
 
-The `pollydrop-public` project runs PostgreSQL, backend, frontend and Caddy. Caddy serves HTTP/1.1 and HTTP/2, obtains/renews HTTPS certificates and preserves them in volumes. Ports 80/443 must be externally reachable. PostgreSQL/backend are private; port 8088 is loopback-only. Containers restart automatically with bounded logs. Preserve volumes and the original encryption key.
+`.env` is generated locally once; updates preserve the encryption key and database password. Generated builds stay in ignored `.runtime/server`. PostgreSQL/backend are private, frontend binds `127.0.0.1:8088`, and Caddy obtains/renews certificates for `drop.pollybich.ru` using HTTP/1.1 and HTTP/2.
 
-Production Nginx limits creation to 12 transfers/minute with a small burst and caps in-flight creation/delivery requests at two. Overload returns 429 with a suggested one-minute retry. These are initial beta limits, not comprehensive abuse protection. Proxy URL logs are disabled to protect link tokens.
+## Connect an existing installation
 
-## Verify and troubleshoot
+Use a fresh directory when moving from a previous checkout, and preserve `.env`. Run from the current project directory; `/opt/pollydrop` must not already exist:
 
 ```bash
-curl --fail --retry 6 --retry-all-errors --retry-delay 5 --max-time 15 https://drop.pollybich.ru/api/health
+POLLY_SOURCE_DIR="$PWD"
+git clone https://github.com/pollybich/pollyDrop.git /opt/pollydrop &&
+install -m 600 "$POLLY_SOURCE_DIR/.env" /opt/pollydrop/.env &&
+cd /opt/pollydrop &&
+./deploy/server/update-debian.sh
 ```
 
-Expect `status: ok` and `version: 0.1.0-beta.2`, then test a transfer. Inspect errors:
+Do not overwrite an existing `/opt/pollydrop`; inspect its installation first. Point `drop.pollybich.ru` DNS to the server before migration. Subsequent updates use the regular commands below.
+
+## Update
+
+From your current checkout:
 
 ```bash
-cd /opt/pollydrop
-docker compose -p pollydrop-public -f compose.yaml -f deploy/server/compose.server.yaml logs --tail=50 caddy backend
-```
-
-Stop while keeping data:
-
-```bash
-docker compose -p pollydrop-public -f compose.yaml -f deploy/server/compose.server.yaml down
-```
-
-Do not add `-v`. Restore needs the database, content and original `APP_MASTER_KEY` together. Automatic backups are not configured. If another proxy already owns ports 80/443, adapt the supplied Nginx templates or Caddy fragment and Compose instead of launching a second public proxy.
-
-## Server update
-
-```bash
-cd /opt/pollydrop
 git pull --ff-only
 ./deploy/server/update-debian.sh
 ```
 
-Secrets and volumes remain. Migration also limits existing transfers to two days from creation. Active content is deleted on the final download or expiry, whichever comes first. Backups and metadata have separate lifecycles.
+Verified assets and replacement images are prepared first. If port 8088 belongs to a previous installation of this service, its keys are checked against `.env` before stopping it. The script cold-copies database, encrypted content and certificates into `pollydrop-public` volumes, then renames the copied database/role to `pollydrop`. The key, password, UUIDs, deadlines and download counts remain intact. Original volumes are retained for recovery. Failed copy/database migration restarts original containers.
 
-## Current interface by default
+The new project starts, Caddy reloads, and verification checks both backend version and actual served JavaScript. A healthy backend alone cannot report a successful interface update. The form defaults to **1 hour**, with a **2-day** maximum.
 
-Installation and normal updates compile the checkout’s frontend with Node.js 24, locked dependencies and production Nginx before restarting services. No host Node.js is needed. The backend remains the verified published build. The one-hour default therefore requires only the normal update command above.
+Migration briefly stops the service. Existing links contain the previous domain: use the same `/s/...` path on the new domain while the deadline and limit remain valid. No automatic old-domain redirect is configured. Original volumes are backups with administrator-controlled retention.
 
-Keys, database, files, HTTPS and request limits are preserved. Health stays version `0.1.0-beta.2`; reload the page after updating and check that a fresh form shows one hour.
+`--frontend-from-source` explicitly compiles the checkout’s frontend; normal updates use release assets.
 
-`--frontend-from-source` remains compatible. Use `--frontend-from-release` only to explicitly install the published frontend; the old release defaults to 24 hours.
-
-## Repair a stale 24-hour interface
-
-If the checkout is current but the server still serves `index-CkzQpeiu.js` and `useState(86400)`, apply the checked prebuilt interface:
+## Verify and troubleshoot
 
 ```bash
-cd /opt/pollydrop
-git pull --ff-only
+curl --fail https://drop.pollybich.ru/api/health
+docker compose -p pollydrop-public -f compose.yaml -f deploy/server/compose.server.yaml logs --tail=50 backend caddy
+```
+
+Expect `status: ok` and `version: 0.1.0-beta.3`. Check the form, RU / EN switch and a test transfer. Refresh only the interface of an already migrated installation:
+
+```bash
 ./deploy/server/update-interface.sh
 ```
 
-The script verifies archive/JavaScript SHA-256, builds only Nginx with static files and recreates only the frontend. No Node.js compilation or backend/database/volume restart. Success requires the served JavaScript to match `/assets/index-DFQQf_X9.js` with the 3600-second default; a stale response fails verification.
+The script replaces only frontend and verifies served JavaScript against the image.
 
-The packaged snapshot is specific to the one-hour change without a new release. Use normal `update-debian.sh` for subsequent updates; it also verifies served frontend bytes against the built image. This snapshot remains a historical fix when future releases are published.
+## Data and limits
+
+`pollydrop-public` owns separate database, content and certificate volumes. `down` preserves them; do not add `-v`. Restore requires database, content and the original `APP_MASTER_KEY` together. Revoke restored transfers before exposing an outdated backup to avoid repeating consumed deliveries. Automatic backups are not configured.
+
+Nginx limits creation to 12 transfers/minute with a small burst and caps in-flight creation/delivery at two. Overload returns 429. Secret URL logs are disabled. These are initial beta limits, not comprehensive abuse protection.
+
+## Country-based language
+
+A bundled local DB-IP Lite country database selects Russian for `RU`, English elsewhere or for unknown addresses. IPv4/IPv6 are supported. Caddy sanitizes forwarding headers; Nginx passes the client address to the private backend. This mechanism sends no visitor IP to an external GeoIP service and stores no IP in the database/logs. Manual browser preference takes priority. VPN/proxy routing can affect the detected country.

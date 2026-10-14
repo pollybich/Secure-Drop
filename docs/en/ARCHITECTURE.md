@@ -48,3 +48,7 @@ At startup the single backend releases old reservations, removes orphaned files,
 File format: version byte 1 + random 12-byte nonce + AES-256-GCM ciphertext/tag, with the UUID as AAD. Temporary writes move atomically; failed creation transactions remove their content file. Argon2id uses 64 MiB, three iterations, parallelism 1 and a 16-byte salt. Five bad passwords per transfer/direct-connection address trigger a 15-minute in-memory lockout.
 
 Keys live separately in `.env`. Public access requires HTTPS at the external proxy. Key rotation, antivirus, scaling, backups and automatic metadata retention are future work.
+
+## Language selection
+
+`GET /api/locale` returns `country` and `language`, never the visitor IP. `RU` selects `ru`; other or unknown addresses select `en`. A local DB-IP Lite MMDB is bundled in the JAR; source/checksum are pinned in `config/geoip-source.json`. No external GeoIP request is made. Only private/local ingress can provide X-Real-IP; Caddy sanitizes forwarded headers and Nginx passes the normalized client address. Stored manual RU / EN selection takes precedence. Transfer contents and user filenames are never translated.

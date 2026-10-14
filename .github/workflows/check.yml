@@ -22,6 +22,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm --prefix frontend ci
       - run: npm --prefix frontend run build
+      - run: python3 scripts/prepare-geoip.py
       - run: mvn -B -f backend/pom.xml verify
       - run: ./scripts/init-env.sh
       - run: docker compose build
@@ -43,12 +44,16 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:8088/api/health
       - name: Chromium native download and metadata recovery
-        run: python frontend/e2e/smoke.py
+        run: |
+          python frontend/e2e/smoke.py
+          python frontend/e2e/languages.py
         env:
           BASE_URL: http://127.0.0.1:8088
           BROWSER: chromium
       - name: WebKit with iPhone emulation
-        run: python frontend/e2e/smoke.py
+        run: |
+          python frontend/e2e/smoke.py
+          python frontend/e2e/languages.py
         env:
           BASE_URL: http://127.0.0.1:8088
           BROWSER: webkit

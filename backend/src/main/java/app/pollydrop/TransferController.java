@@ -13,7 +13,7 @@ import java.util.Map;
 public class TransferController {
     private final TransferService service;private final RuntimeGuard guard;private final DeliveryService delivery;private final DownloadTickets tickets;
     public TransferController(TransferService service,RuntimeGuard guard,DeliveryService delivery,DownloadTickets tickets){this.service=service;this.guard=guard;this.delivery=delivery;this.tickets=tickets;}
-    @GetMapping("/health") public Map<String,String> health(){if(!guard.ready())throw new ApiFailure(503,"NOT_READY","Сервис запускается.");return Map.of("status","ok","version","0.1.0-beta.2");}
+    @GetMapping("/health") public Map<String,String> health(){if(!guard.ready())throw new ApiFailure(503,"NOT_READY","Сервис запускается.");return Map.of("status","ok","version","0.1.0-beta.3");}
     @PostMapping(value="/transfers",consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     public TransferService.Created create(@RequestPart("options") TransferService.Options options,@RequestPart(value="file",required=false)MultipartFile file)throws IOException {

@@ -13,3 +13,6 @@ test-results/
 .DS_Store
 
 *.tsbuildinfo
+
+backend/src/main/resources/geoip-country.mmdb
+__pycache__/

@@ -5,7 +5,7 @@ on:
       tag:
         description: Existing release tag
         required: true
-        default: v0.1.0-beta.2
+        default: v0.1.0-beta.3
 permissions:
   contents: write
 jobs:
@@ -27,6 +27,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm --prefix frontend ci
       - run: npm --prefix frontend run build
+      - run: if [ -f scripts/prepare-geoip.py ]; then python3 scripts/prepare-geoip.py; fi
       - run: mvn -B -f backend/pom.xml verify
       - run: ./scripts/init-env.sh
       - run: docker compose build
@@ -42,8 +43,13 @@ jobs:
           tar -czf "release/pollydrop-interface-$VERSION.tar.gz" -C frontend/dist .
           cp docs/images/desktop.png release/pollydrop-desktop.png
           cp docs/images/mobile.png release/pollydrop-mobile.png
+          if [ -f backend/src/main/resources/geoip-country.mmdb ]; then
+            cp backend/src/main/resources/geoip-country.mmdb release/pollydrop-country.mmdb
+            cp licenses/DBIP-LICENSE.txt release/DBIP-LICENSE.txt
+          fi
           cd release
           sha256sum *.jar *.tar.gz *.png > SHA256SUMS.txt
+          if [ -f pollydrop-country.mmdb ]; then sha256sum *.mmdb DBIP-LICENSE.txt >> SHA256SUMS.txt; fi
       - name: Upload assets and publish prerelease
         env:
           GH_TOKEN: ${{ github.token }}

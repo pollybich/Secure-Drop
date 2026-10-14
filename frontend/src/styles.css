@@ -201,3 +201,11 @@ h2 { margin: 0; font-size: 31px; line-height: 1.2; letter-spacing: -1.4px; font-
   .site-footer { font-size: 9px; }
   .footer-right > a { width: 44px; height: 44px; }
 }
+
+.language-loading { min-height: 100svh; display: flex; align-items: center; justify-content: center; gap: 16px; }
+.language-switch { display: flex; padding: 3px; border: 1px solid #87926d28; border-radius: 12px; background: #ffffff74; }
+.language-switch button { min-width: 33px; min-height: 33px; border-radius: 9px; background: transparent; font-family: monospace; font-size: 10px; color: #727b65; }
+.language-switch button[aria-pressed="true"] { background: #d5f56880; color: #252920; }
+.geoip-credit { font-size: 8px; text-decoration-color: #8c9b5f3d; text-underline-offset: 3px; }
+.header-actions { gap: 18px; }
+@media (max-width: 640px) { .header-actions { gap: 8px; } .help-button > span:first-child { display: none; } .site-footer { flex-wrap: wrap; gap: 14px; } .geoip-credit { order: 3; width: 100%; text-align: center; } }

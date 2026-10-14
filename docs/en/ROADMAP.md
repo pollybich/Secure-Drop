@@ -64,3 +64,11 @@ A plan without calendar dates. Checked items mean implemented and verified behav
 - [ ] Consider end-to-end encryption as a separate architecture change.
 
 New features are assessed against security and solo-maintainer capacity. Permanent storage and native apps are outside the current scope.
+
+## v0.1.0-beta.3
+
+- [x] Italic p logo and consistent visual style.
+- [x] Russian / English interface and saved manual preference.
+- [x] Local IPv4/IPv6 country lookup for initial language.
+- [x] One-hour default in the released frontend.
+- [x] Checked binary updates and migration preserving keys, files and counters.
