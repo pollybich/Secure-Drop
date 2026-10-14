@@ -1,0 +1,60 @@
+name: Publish beta release
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag
+        required: true
+        default: v0.1.0-beta.3
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm --prefix frontend ci
+      - run: npm --prefix frontend run build
+      - run: python3 scripts/prepare-geoip.py
+      - run: mvn -B -f backend/pom.xml verify
+      - run: ./scripts/init-env.sh
+      - run: docker compose build
+      - name: Package tested builds
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]
+          VERSION="${RELEASE_TAG#v}"
+          test -f "backend/target/pollydrop-$VERSION.jar"
+          mkdir release
+          cp backend/target/pollydrop-*.jar release/
+          tar -czf "release/pollydrop-interface-$VERSION.tar.gz" -C frontend/dist .
+          cp docs/images/desktop.png release/pollydrop-desktop.png
+          cp docs/images/mobile.png release/pollydrop-mobile.png
+          cp backend/src/main/resources/geoip-country.mmdb release/pollydrop-country.mmdb
+          cp licenses/DBIP-LICENSE.txt release/DBIP-LICENSE.txt
+          cd release
+          sha256sum *.jar *.tar.gz *.png *.mmdb DBIP-LICENSE.txt > SHA256SUMS.txt
+      - name: Upload assets and publish prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]
+          gh release view "$RELEASE_TAG" --json tagName
+          gh release upload "$RELEASE_TAG" release/* --clobber
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false --notes-file "docs/releases/$RELEASE_TAG.md"

@@ -1,0 +1,14 @@
+**
+!frontend/
+!frontend/**
+frontend/node_modules/
+frontend/dist/
+frontend/.env*
+frontend/*.tsbuildinfo
+!deploy/
+!deploy/server/
+!deploy/server/nginx.frontend.conf
+!deploy/server/runtime/
+!deploy/server/runtime/frontend/
+!deploy/server/runtime/frontend/Dockerfile.source
+!deploy/server/runtime/frontend/Dockerfile.source.dockerignore

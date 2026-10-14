@@ -1,0 +1,28 @@
+server:
+  port: 8080
+  error:
+    include-message: never
+    include-stacktrace: never
+spring:
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/pollydrop}
+    username: ${DATABASE_USER:pollydrop}
+    password: ${POSTGRES_PASSWORD}
+    hikari:
+      maximum-pool-size: 10
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 26MB
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+app:
+  master-key: ${APP_MASTER_KEY}
+  storage-dir: ${APP_STORAGE_DIR:./data/files}
+  max-bytes: ${APP_MAX_BYTES:26214400}
+  storage-quota: ${APP_STORAGE_QUOTA:1073741824}

@@ -1,0 +1,18 @@
+{
+    servers {
+        protocols h1 h2
+    }
+    # Request paths contain secret transfer tokens. Keep them out of runtime error logs.
+    log {
+        exclude http.log.error
+    }
+}
+drop.pollybich.ru {
+    header Alt-Svc "clear"
+    request_body {
+        max_size 32MB
+    }
+    reverse_proxy frontend:80 {
+        flush_interval -1
+    }
+}

@@ -1,0 +1,39 @@
+name: pollydrop-beta
+services:
+  db:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_DB: pollydrop
+      POSTGRES_USER: pollydrop
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run scripts/init-env.sh}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pollydrop -d pollydrop"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: jdbc:postgresql://db:5432/pollydrop
+      DATABASE_USER: pollydrop
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run scripts/init-env.sh}
+      APP_MASTER_KEY: ${APP_MASTER_KEY:?Run scripts/init-env.sh}
+      APP_STORAGE_DIR: /data/files
+      APP_MAX_BYTES: ${APP_MAX_BYTES:-26214400}
+      APP_STORAGE_QUOTA: ${APP_STORAGE_QUOTA:-1073741824}
+    volumes:
+      - files:/data/files
+    depends_on:
+      db:
+        condition: service_healthy
+  frontend:
+    build: ./frontend
+    ports:
+      - "127.0.0.1:8088:80"
+    depends_on:
+      - backend
+volumes:
+  database:
+  files:
